@@ -1,0 +1,180 @@
+--[[
+    WARNING: This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local angle = 0
+local radius = 10
+local blackHoleActive = false
+local spinSpeed = 5 -- Default spin speed
+
+-- Attachments for black hole effects
+local humanoidRootPart, Attachment1
+local blackHoleConnection
+
+-- Function to set up the player's character
+local function setupPlayer()
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+    local folder = Instance.new("Folder", Workspace)
+    folder.Name = "BlackHoleFolder"
+    
+    local part = Instance.new("Part")
+    part.Name = "BlackHoleCore"
+    part.Anchored = true
+    part.CanCollide = true
+    part.Transparency = 0.5
+    part.Parent = folder
+
+    Attachment1 = Instance.new("Attachment", part)
+end
+
+setupPlayer()
+
+-- Global networking for part control
+if not getgenv().Network then
+    getgenv().Network = {
+        BaseParts = {},
+        Velocity = Vector3.new(14.46262424, 14.46262424, 14.46262424)
+    }
+
+    function Network.RetainPart(part)
+        if typeof(part) == "Instance" and part:IsA("BasePart") and part:IsDescendantOf(Workspace) then
+            table.insert(Network.BaseParts, part)
+            part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
+            part.CanCollide = true
+        end
+    end
+
+    local function enablePartControl()
+        LocalPlayer.ReplicationFocus = Workspace
+        RunService.Heartbeat:Connect(function()
+            sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+            for _, part in pairs(Network.BaseParts) do
+                if part:IsDescendantOf(Workspace) then
+                    part.Velocity = Network.Velocity
+                end
+            end
+        end)
+    end
+
+    enablePartControl()
+end
+
+-- Function to force part manipulation
+local function forcePart(v)
+    if v:IsA("BasePart") and not v.Anchored and not v.Parent:FindFirstChild("Humanoid") and v.Name ~= "Handle" then
+        for _, child in ipairs(v:GetChildren()) do
+            if child:IsA("BodyMover") or child:IsA("Attachment") then
+                child:Destroy()
+            end
+        end
+
+        v.CanCollide = true
+        local torque = Instance.new("Torque", v)
+        torque.Torque = Vector3.new(9999999, 9999999, 9999999)
+        
+        local alignPos = Instance.new("AlignPosition", v)
+        alignPos.MaxForce = math.huge
+        alignPos.MaxVelocity = math.huge
+        alignPos.Responsiveness = 1000
+        
+        local attachment = Instance.new("Attachment", v)
+        torque.Attachment0 = attachment
+        alignPos.Attachment0 = attachment
+        alignPos.Attachment1 = Attachment1
+    end
+end
+
+-- Black hole toggle function
+-- Function to activate the black hole
+local function ActivateBlackHole()
+    -- Activate the black hole
+    blackHoleActive = true
+
+    -- Apply force to existing parts in workspace
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        forcePart(v)
+    end
+
+    -- Set up connection to handle new parts added to the workspace
+    blackHoleConnection = Workspace.DescendantAdded:Connect(function(v)
+        if blackHoleActive then
+            forcePart(v)
+        end
+    end)
+
+    -- Dynamic attachment movement (only if black hole is active)
+    spawn(function()
+        while blackHoleActive do
+            angle = angle + math.rad(spinSpeed) -- Adjust spin speed dynamically
+            local offsetX = math.cos(angle) * radius
+            local offsetZ = math.sin(angle) * radius
+
+            -- Ensure Attachment1 and humanoidRootPart are available before moving
+            if humanoidRootPart and Attachment1 then
+                -- Update Attachment1 position dynamically
+                Attachment1.WorldCFrame = humanoidRootPart.CFrame * CFrame.new(offsetX, 0, offsetZ)
+            end
+
+            RunService.RenderStepped:Wait()
+        end
+    end)
+end
+
+-- Function to deactivate the black hole
+local function DeactivateBlackHole()
+    -- Deactivate the black hole
+    blackHoleActive = false
+
+    -- Disconnect the black hole connection if active
+    if blackHoleConnection then
+        blackHoleConnection:Disconnect()
+        blackHoleConnection = nil
+    end
+
+    -- Reset attachment position if it's available
+    if Attachment1 then
+        Attachment1.WorldCFrame = CFrame.new(0, -1000, 0)
+    end
+end
+
+-- UI Library (replace with your custom library if necessary)
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/ZeianRussell/Kavo-UI-Library/main/Movable.source.lua"))()
+local Window = Library.CreateLib("OMELET HUB", "Midnight")
+local Tab = Window:NewTab("BLACKHOLE")
+local Section = Tab:NewSection("Customization")
+
+Section:NewSlider("Radius Blackhole", "Adjust the blackhole radius", 10, 1, function(value)
+    radius = value
+end)
+
+
+Section:NewSlider("Spin Speed", "Speed of Spin", 1000, 1, function(value)
+    spinSpeed = value
+end)
+
+-- Toggle for black hole
+Section:Toggle("Blackhole","On or Off", false, function(value)
+    if value then
+        -- Activate the black hole
+        ActivateBlackHole()
+    else
+        -- Deactivate the black hole
+        DeactivateBlackHole()
+    end
+end)
+
+-- Re-initialize player on respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    setupPlayer()
+    if blackHoleActive then
+        ActivateBlackHole()  -- Ensure it's properly activated if black hole is active
+    end
+end)
+
+toggleBlackHole()
