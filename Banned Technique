@@ -143,28 +143,25 @@ local function DeactivateBlackHole()
     end
 end
 
--- UI Library (replace with your custom library if necessary)
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/ZeianRussell/Kavo-UI-Library/main/Movable.source.lua"))()
-local Window = Library.CreateLib("OMELET HUB", "Midnight")
-local Tab = Window:NewTab("BLACKHOLE")
-local Section = Tab:NewSection("Customization")
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/turtle"))()
 
-Section:NewSlider("Radius Blackhole", "Adjust the blackhole radius", 10, 1, function(value)
-    radius = value
+local Fr = library:Window("BLACKHOLE")
+
+
+Fr:Slider("Radius Blackhole", 1, 10, 10, function(value)
+radius = value
 end)
 
 
-Section:NewSlider("Spin Speed", "Speed of Spin", 1000, 1, function(value)
+Fr:NewSlider("Spin Speed", 1, 1000, 1000,
+function(value)
     spinSpeed = value
 end)
 
--- Toggle for black hole
-Section:Toggle("Blackhole","On or Off", false, function(value)
+Fr:Toggle("Blackhole", false, function(value)
     if value then
-        -- Activate the black hole
         ActivateBlackHole()
     else
-        -- Deactivate the black hole
         DeactivateBlackHole()
     end
 end)
